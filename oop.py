@@ -248,8 +248,8 @@ class Sidebar:
         self.sidebar.write(instructions)
         self.sidebar.markdown("---")
     
-    def add_selectbox(self, label, options):
-        return self.sidebar.selectbox(label, options)
+    def add_selectbox(self, label, options, key=None):
+        return self.sidebar.selectbox(label, options, key=key)
     
     def add_multiselect(self, label, options):
         return self.sidebar.multiselect(label, options)
@@ -266,7 +266,6 @@ per_student_expenditure = PerStudentExpenditure('per_student_expenditure')
 class_size = ClassSize('class_size')
 student_group_populations.strip_whitespace()
 
-print(per_student_expenditure.display().info())
 
 # # Load the data
 intro_container = st.container()
@@ -286,11 +285,11 @@ with sidebar_container:
     y3 = class_size.get_unique_values('Year')
     year_combinations = overall_performance.get_year_combinations(yr1, yr2, y3)
 
-    selected_year = side_bar.add_selectbox("Select Year:", year_combinations)
+    selected_year = side_bar.add_selectbox("Select Year:", year_combinations, key=1)
 
-    selected_school_level = side_bar.add_selectbox("Select School Level:",school_info.get_unique_values('School_Level'))
+    selected_school_level = side_bar.add_selectbox("Select School Level:",school_info.get_unique_values('School_Level'), key=2)
     school_info.display_school_level(selected_school_level)
-    selected_school = side_bar.add_selectbox("Select School:", school_info.get_unique_values('School_Name'))
+    selected_school = side_bar.add_selectbox("Select School:", school_info.get_unique_values('School_Name'), key=3)
 
 with intro_container:
     st.title('HCPSS MSDE Dashboard 2016 - 2024')
@@ -360,7 +359,6 @@ with section1_container:
             try:
                 st.write("Per Pupil Expenditure")
                 per_student_expenditure_for_school = per_student_expenditure.filter_by_multiple_columns({'School_Name': selected_school, 'Year': selected_year})
-                print(per_student_expenditure_for_school)
                 transposed_df = per_student_expenditure_for_school.drop(columns = ['Year','School', 'School_Name', 'School Level'], axis = 1).T.rename(columns = {per_student_expenditure_for_school.index[0]:'Spending Type'})
                 st.dataframe(transposed_df)
             except Exception as e:
@@ -371,7 +369,7 @@ with section1_container:
             else:
                 try:
                     options = student_demographic_data.display()['Student Category'].dropna().unique()
-                    select_to_plot = st.selectbox("Select Student Category:",options, key=0)
+                    select_to_plot = st.selectbox("Select Student Category:",options, key=4)
                     school_demo_to_plot = school_demo.filter_by_column_value('School_Name',selected_school)
                     student_group_populations=student_group_populations.filter_by_column_value('School_Name',selected_school)
                     
@@ -401,7 +399,7 @@ with section1_container:
                 except Exception as e:
                     st.warning(f"No demographic data available for {selected_year}. Data available for 2020 thru 2024")
         
-        st.markdown("---")
+    st.markdown("---")
 with section2_container:
 
     st.markdown("**SECTION 2: OVERALL PERFORMANCE AND PROFICIENCY INDICATORS FOR EACH SCHOOL**")
@@ -415,53 +413,52 @@ with section2_container:
                                                                  [f"{selected_school} : Overall Performance", 
                                                                  f"{selected_school} : Math and ELA Proficiency by Student Category"], [2,2,2])
     
-    academic_achievement_and_overall_performance.open_expander()
+    with academic_achievement_and_overall_performance.open_expander():
     
-    if selected_year not in overall_performance.get_unique_values("Year", use_original=True).astype(int):
-        st.warning(f"Overall Performance Data Not Available for 2016-2017 and 2020-2021.")
-        
-    else:
-        column_groups = academic_achievement_and_overall_performance.render_columns()
-        col3, col4 = column_groups[0]
-    
-        with col3:
-            sub_combined_overall_performance = overall_performance.filter_by_multiple_columns({'Year': int(selected_year), 'School_Name': selected_school})
-            st.dataframe(sub_combined_overall_performance.drop(columns=['Year', 'School_Name','table_type']), hide_index=True)
-        with col4:
-            to_plot_indicator = overall_performance.filter_by_multiple_columns({'School_Name': selected_school}).dropna()
-            # Create the Altair chart
-            chart = line_chart(to_plot_indicator, 'Percent_Earned_Points', 'Indicator')
-            # Display the chart in Streamlit
-            st.altair_chart(chart, use_container_width=True)
-    
-
-    if selected_year not in achievements_table.get_unique_values("Year", use_original=True).astype(int):
-        st.warning(f"Math and ELA Proficiency Data Not Available for 2016-2017 and 2020-2021.")
-    else:
-        
-        col5, col6 = column_groups[1]
-        with col5:
-            st.write("Math and ELA Proficiency by Student Category")
-            sub_combined_achievements_table = achievements_table.filter_by_multiple_columns({'Year': int(selected_year), 'School_Name': selected_school})
-            st.dataframe(sub_combined_achievements_table.drop(columns=['Year', 'School_Name','table_type']), hide_index=True)
-        with col6:
-            select_indicator = st.radio("Select Indicator:", options =['Math_Proficiency', 'ELA_Proficiency'], horizontal=True)
-                  
-            try:
-                to_plot_indicator = achievements_table.filter_by_multiple_columns({'School_Name': selected_school})
+        if selected_year not in overall_performance.get_unique_values("Year", use_original=True).astype(int):
+            st.warning(f"Overall Performance Data Not Available for 2016-2017 and 2020-2021.")
             
-                chart = line_chart(to_plot_indicator, select_indicator, 'Student_Category')
-
-                st.altair_chart(chart, use_container_width=True)
-
-            except Exception as e:
-                if no_demo:
-                    st.warning(f"No {select_indicator} data available in {selected_year}. Data available for 2020 thru 2024")
-                else:
-                    st.warning(f"No {select_indicator} data available for {select_to_plot} Category")
+        else:
+            column_groups = academic_achievement_and_overall_performance.render_columns()
+            col3, col4 = column_groups[0]
         
-        st.markdown("---")
+            with col3:
+                sub_combined_overall_performance = overall_performance.filter_by_multiple_columns({'Year': int(selected_year), 'School_Name': selected_school})
+                st.dataframe(sub_combined_overall_performance.drop(columns=['Year', 'School_Name','table_type']), hide_index=True)
+            with col4:
+                to_plot_indicator = overall_performance.filter_by_multiple_columns({'School_Name': selected_school}).dropna()
+                # Create the Altair chart
+                chart = line_chart(to_plot_indicator, 'Percent_Earned_Points', 'Indicator')
+                # Display the chart in Streamlit
+                st.altair_chart(chart, use_container_width=True)
+        
 
+        if selected_year not in achievements_table.get_unique_values("Year", use_original=True).astype(int):
+            st.warning(f"Math and ELA Proficiency Data Not Available for 2016-2017 and 2020-2021.")
+        else:
+            
+            col5, col6 = column_groups[1]
+            with col5:
+                st.write("Math and ELA Proficiency by Student Category")
+                sub_combined_achievements_table = achievements_table.filter_by_multiple_columns({'Year': int(selected_year), 'School_Name': selected_school})
+                st.dataframe(sub_combined_achievements_table.drop(columns=['Year', 'School_Name','table_type']), hide_index=True)
+            with col6:
+                select_indicator = st.radio("Select Indicator:", options =['Math_Proficiency', 'ELA_Proficiency'], horizontal=True, key=8)
+                    
+                try:
+                    to_plot_indicator = achievements_table.filter_by_multiple_columns({'School_Name': selected_school})
+                
+                    chart = line_chart(to_plot_indicator, select_indicator, 'Student_Category')
+
+                    st.altair_chart(chart, use_container_width=True)
+
+                except Exception as e:
+                    if no_demo:
+                        st.warning(f"No {select_indicator} data available in {selected_year}. Data available for 2020 thru 2024")
+                    else:
+                        st.warning(f"No {select_indicator} data available for {select_to_plot} Category")
+        
+    st.markdown("---")
 
 with section3_container:
     st.markdown("**SECTION 3: COMPARISON OF SCHOOL SYSTEM WIDE PERFORMANCE BY SCHOOL LEVEL**")
@@ -487,7 +484,7 @@ with section3_container:
             # search_term = selected_school_level if selected_school_level else ~['High, Middle, Elementary']
             # school_level_combined_overall_performance = school_level_combined_overall_performance[school_level_combined_overall_performance['School_Name'].str.contains(search_term, na=False)]
             column_group = school_system_wide_performance.render_columns()
-            select_indicator = st.selectbox("Select Indicator:", school_level_combined_overall_performance['Indicator'].unique(), key=1)
+            select_indicator = st.selectbox("Select Indicator:", school_level_combined_overall_performance['Indicator'].unique(), key=5)
             
             chart = plot_bar_chart(school_level_combined_overall_performance,'School_Name','Percent_Earned_Points', str(selected_year), selected_school_level, select_indicator)
     
@@ -504,9 +501,9 @@ with section3_container:
         else:
             
             with col7:
-                select_to_plot = st.selectbox("Select Student Category:", sub_combined_achievements_table['Student_Category'].unique(), key=3)
+                select_to_plot = st.selectbox("Select Student Category:", sub_combined_achievements_table['Student_Category'].unique(), key=6)
             with col8:
-                select_indicator = st.selectbox("Select Indicator:", options =['Math_Proficiency', 'ELA_Proficiency'], key=4)
+                select_indicator = st.selectbox("Select Indicator:", options =['Math_Proficiency', 'ELA_Proficiency'], key=7)
                 to_plot_indicator = achievements_table.get_school_level(selected_school_level).filter_by_multiple_columns({'Student_Category': select_to_plot, 'Year': int(selected_year)})
             
             chart = plot_bar_chart(to_plot_indicator,'School_Name',select_indicator, str(selected_year), selected_school_level)
@@ -524,15 +521,35 @@ with section4_container:
                                             [f"{selected_school} | {selected_year} | Per Student Expenditure"], [2])
 
     with per_student_expenditure_display.open_expander():
+
         
-        school_level_per_student_expenditure_by_year = per_student_expenditure.melt_data().get_school_level(selected_school_level).filter_by_multiple_columns({'Year': int(selected_year)}) 
-        if int(selected_year) not in school_level_per_student_expenditure_by_year["Year"].unique():
+
+        individual_or_all = st.radio('Select Option:', ['School Level', 'Individual School'], horizontal=True, key = 9)
+        per_student_expenditure_school_level = per_student_expenditure.melt_data().get_school_level(selected_school_level)
+        
+        if individual_or_all == 'School Level':
+                
+            try:
+        
+                school_level_per_student_expenditure_by_year = per_student_expenditure_school_level.filter_by_multiple_columns({'Year': int(selected_year)})
+                            
+                chart = plot_stacked_bar_chart(school_level_per_student_expenditure_by_year,'School_Name','Expenditure', str(selected_year), selected_school_level, 'Spending Type')
+                # Display the chart in Streamlit
+                st.altair_chart(chart, use_container_width=True)
+            except Exception as e:
                 st.warning(f"Per Pupil Expenditure Data Not Available for {selected_year}")
-        else:    
-            
-            chart = plot_stacked_bar_chart(school_level_per_student_expenditure_by_year,'School_Name','Expenditure', str(selected_year), selected_school_level, 'Spending Type')
-            # Display the chart in Streamlit
-            st.altair_chart(chart, use_container_width=True)
+
+        elif individual_or_all == 'Individual School':
+
+            try:
+                individual_school_per_student_expenditure_by_year = per_student_expenditure_school_level.filter_by_multiple_columns({'School_Name': selected_school})
+                individual_school_per_student_expenditure_by_year = individual_school_per_student_expenditure_by_year[individual_school_per_student_expenditure_by_year['Spending Type'].isin(['Federal Amount', 'State/Local Amount'])]
+                chart = line_chart(individual_school_per_student_expenditure_by_year,'Expenditure', 'Spending Type', demo_category=None, selected_school = selected_school)
+                # Display the chart in Streamlit
+                st.altair_chart(chart, use_container_width=True)
+            except Exception as e:
+                st.warning(f"Per Pupil Expenditure Data Not Available for {selected_school}")                    
+                
     
     st.markdown("---")
 
@@ -546,12 +563,12 @@ with section5_container:
 
         column_group = class_size_display.render_columns()
 
-        individual_or_all = st.radio('Select Option:', ['School Level', 'Individual School'], horizontal=True)
+        individual_or_all = st.radio('Select Option:', ['School Level', 'Individual School'], horizontal=True, key = 10)
 
         try:
         
             if individual_or_all == 'School Level':
-                select_class_size_metric = st.radio("Select Class Size Metric:", options =['Avg_Class_Size', 'Math_Class_Size', 'ELA_Class_Size'], horizontal=True)
+                select_class_size_metric = st.radio("Select Class Size Metric:", options =['Avg_Class_Size', 'Math_Class_Size', 'ELA_Class_Size'], horizontal=True, key=11)
                 filtered_class_size_df = class_size.melt_data().filter_by_multiple_columns({'Year': int(selected_year), 'School_Level': selected_school_level, 'Category': select_class_size_metric}).dropna().reset_index(drop=True)
                 chart = plot_bar_chart(filtered_class_size_df,'School_Name','Class_Size', str(selected_year), selected_school_level)
             elif individual_or_all == 'Individual School':
