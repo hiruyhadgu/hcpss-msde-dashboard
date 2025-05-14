@@ -266,6 +266,8 @@ per_student_expenditure = PerStudentExpenditure('per_student_expenditure')
 class_size = ClassSize('class_size')
 student_group_populations.strip_whitespace()
 
+print(per_student_expenditure.display().info())
+
 # # Load the data
 intro_container = st.container()
 sidebar_container = st.container()
@@ -357,8 +359,9 @@ with section1_container:
 
             try:
                 st.write("Per Pupil Expenditure")
-                per_student_expenditure_for_school = per_student_expenditure.filter_by_multiple_columns({'School Name': selected_school, 'Year': selected_year})
-                transposed_df = per_student_expenditure_for_school.drop(columns = ['Year','School', 'School Name', 'School Level'], axis = 1).T.rename(columns = {per_student_expenditure_for_school.index[0]:'Spending Type'})
+                per_student_expenditure_for_school = per_student_expenditure.filter_by_multiple_columns({'School_Name': selected_school, 'Year': selected_year})
+                print(per_student_expenditure_for_school)
+                transposed_df = per_student_expenditure_for_school.drop(columns = ['Year','School', 'School_Name', 'School Level'], axis = 1).T.rename(columns = {per_student_expenditure_for_school.index[0]:'Spending Type'})
                 st.dataframe(transposed_df)
             except Exception as e:
                 st.warning(f'Per Student Expenditure Data Not Available for {selected_school} in {selected_year}.')
