@@ -72,9 +72,13 @@ class FileInfo(SqlReader):
         self.df = self.df.dropna()
         return self.df
     
-    def get_unique_values(self, column, use_original=False):
+    def get_unique_values(self, column, use_original=False, filter_by_year = None):
         """Get unique values from a column, optionally using original (unfiltered) DataFrame."""
         source_df = self.original_df if use_original else self.df
+       
+        if filter_by_year is not None:
+            source_df = source_df[source_df['Year'].astype(int) == int(filter_by_year)]
+
         return source_df[column].dropna().unique()
     
     
@@ -151,7 +155,14 @@ class AchievementsTable(FileInfo):
 class SchoolDemo(FileInfo):
     def __init__(self, table_name):
         super().__init__(table_name)
-
+        self.df["School_Level"] = self.df["School_Name"].astype(str).apply(
+            lambda name: (
+                "Elementary" if "elementary" in name.lower() else
+                "Middle" if "middle" in name.lower() else
+                "High" if "high" in name.lower() else
+                "Other"
+            )
+        )
 
 class StudentGroupPopulations(FileInfo):
     def __init__(self, file):
@@ -327,10 +338,9 @@ with section1_container:
     demographic_data = DataDashboard("Click this Section to Explore Demographic Data", 
                                     ["Shool Report Card and Demographics at a Glance", 
                                      f"{selected_school} | {selected_year} | Demographic Data"], [2])
-    
-    if str(selected_year) not in school_demo.get_unique_values('Year', True) or selected_school not in school_demo.get_unique_values('School_Name', True):
+        
+    if str(selected_year) not in school_demo.get_unique_values('Year', True) or selected_school not in school_demo.get_unique_values('School_Name', True, filter_by_year=int(selected_year)):
         no_demo = True
-
     else:
         
         sub_school_demo = get_demo_summary(school_demo.df,'Year', 'School_Name', selected_year, selected_school)
@@ -424,13 +434,18 @@ with section2_container:
         
             with col3:
                 sub_combined_overall_performance = overall_performance.filter_by_multiple_columns({'Year': int(selected_year), 'School_Name': selected_school})
-                st.dataframe(sub_combined_overall_performance.drop(columns=['Year', 'School_Name','table_type']), hide_index=True)
+                if sub_combined_overall_performance.empty:
+                    st.warning(f"No overall performance data available for {selected_school}")
+                else:
+                    st.dataframe(sub_combined_overall_performance.drop(columns=['Year', 'School_Name','table_type']), hide_index=True)
             with col4:
                 to_plot_indicator = overall_performance.filter_by_multiple_columns({'School_Name': selected_school}).dropna()
-                # Create the Altair chart
-                chart = line_chart(to_plot_indicator, 'Percent_Earned_Points', 'Indicator')
-                # Display the chart in Streamlit
-                st.altair_chart(chart, use_container_width=True)
+                if to_plot_indicator.empty:
+                    st.warning(f"No overall performance data available for {selected_school}")
+                else:
+                    chart = line_chart(to_plot_indicator, 'Percent_Earned_Points', 'Indicator')
+                    # Display the chart in Streamlit
+                    st.altair_chart(chart, use_container_width=True)
         
 
         if selected_year not in achievements_table.get_unique_values("Year", use_original=True).astype(int):
@@ -441,16 +456,22 @@ with section2_container:
             with col5:
                 st.write("Math and ELA Proficiency by Student Category")
                 sub_combined_achievements_table = achievements_table.filter_by_multiple_columns({'Year': int(selected_year), 'School_Name': selected_school})
-                st.dataframe(sub_combined_achievements_table.drop(columns=['Year', 'School_Name','table_type']), hide_index=True)
+                if sub_combined_achievements_table.empty:
+                    st.warning(f"No overall performance data available for {selected_school}")
+                else:
+                    st.dataframe(sub_combined_achievements_table.drop(columns=['Year', 'School_Name','table_type']), hide_index=True)
             with col6:
                 select_indicator = st.radio("Select Indicator:", options =['Math_Proficiency', 'ELA_Proficiency'], horizontal=True, key=8)
                     
                 try:
                     to_plot_indicator = achievements_table.filter_by_multiple_columns({'School_Name': selected_school})
+                    if to_plot_indicator.empty:
+                        st.warning(f"No overall performance data available for {selected_school}")
+                    else:
                 
-                    chart = line_chart(to_plot_indicator, select_indicator, 'Student_Category')
+                        chart = line_chart(to_plot_indicator, select_indicator, 'Student_Category')
 
-                    st.altair_chart(chart, use_container_width=True)
+                        st.altair_chart(chart, use_container_width=True)
 
                 except Exception as e:
                     if no_demo:
@@ -501,7 +522,7 @@ with section3_container:
         else:
             
             with col7:
-                select_to_plot = st.selectbox("Select Student Category:", sub_combined_achievements_table['Student_Category'].unique(), key=6)
+                select_to_plot = st.selectbox("Select Student Category:", achievements_table.get_unique_values('Student_Category', use_original=True), key=6)
             with col8:
                 select_indicator = st.selectbox("Select Indicator:", options =['Math_Proficiency', 'ELA_Proficiency'], key=7)
                 to_plot_indicator = achievements_table.get_school_level(selected_school_level).filter_by_multiple_columns({'Student_Category': select_to_plot, 'Year': int(selected_year)})

@@ -15,11 +15,14 @@ def get_demo_summary(df, year_col, school_name_col, selected_year, selected_scho
     df['Number of Students'] = pd.to_numeric(df['Number of Students'], errors='coerce')
 
     all_students_row = df[df['Student Category'] == 'All Students']
+  
     if all_students_row.empty:
         raise ValueError("Missing 'All Students' row.")
 
     all_students = all_students_row['Number of Students'].values[0]
+    
     df['Percent of Students'] = (df['Number of Students'] / all_students * 100).round(2)
+ 
     return df
 
 
